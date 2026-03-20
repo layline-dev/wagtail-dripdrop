@@ -6,11 +6,33 @@ build-backend = "hatchling.build"
 name = "wagtail-dripdrop"
 version = "0.1.0"
 description = "Connect Wagtail form pages to DripDrop flows."
+readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = "Apache-2.0"
+authors = [
+    { name = "Layline", email = "dev@layline.dev" },
+]
+keywords = ["wagtail", "dripdrop", "forms", "crm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Wagtail",
+    "Framework :: Wagtail :: 5",
+    "Framework :: Wagtail :: 6",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
 dependencies = [
     "wagtail>=5.0",
-    "httpx",
+    "dripdrop",
 ]
 
 [project.optional-dependencies]
@@ -19,6 +41,12 @@ dev = [
     "pytest",
     "pytest-django",
 ]
+
+[project.urls]
+Homepage = "https://github.com/layline-dev/wagtail-dripdrop"
+Repository = "https://github.com/layline-dev/wagtail-dripdrop"
+Changelog = "https://github.com/layline-dev/wagtail-dripdrop/blob/main/CHANGELOG.md"
+Issues = "https://github.com/layline-dev/wagtail-dripdrop/issues"
 
 [tool.ruff]
 target-version = "py310"

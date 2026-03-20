@@ -52,3 +52,12 @@ ROOT_URLCONF = "tests.urls"
 STATIC_URL = "/static/"
 WAGTAIL_SITE_NAME = "wagtail-dripdrop test"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+DRIPDROP_API_KEY = "test-api-key"
+DRIPDROP_API_BASE_URL = "https://test.example.com"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
