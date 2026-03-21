@@ -6,7 +6,7 @@ from django.views import View
 from wagtail import hooks
 from wagtail.admin.menu import MenuItem
 
-from wagtail_dripdrop.cache import refresh_flow_cache
+from wagtail_dripdrop.cache import refresh_custom_field_cache, refresh_flow_cache
 
 
 class RefreshFlowCacheView(View):
@@ -15,7 +15,8 @@ class RefreshFlowCacheView(View):
         if not request.user.is_staff:
             raise PermissionDenied
         refresh_flow_cache()
-        messages.success(request, "DripDrop flow cache refreshed.")
+        refresh_custom_field_cache()
+        messages.success(request, "DripDrop cache refreshed.")
         return HttpResponseRedirect(reverse("wagtailadmin_home"))
 
 

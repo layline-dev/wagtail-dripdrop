@@ -15,7 +15,6 @@ def client():
     return DripDropClient(api_key="test-key", base_url="https://test.example.com")
 
 
-
 class TestListFlows:
     def test_returns_all_flows_single_page(self, client):
         flow = MagicMock(spec=dripdrop.PublicFlow)
@@ -38,6 +37,27 @@ class TestListFlows:
         assert result == [flow_a, flow_b]
 
 
+class TestListCustomFields:
+    def test_returns_all_fields_single_page(self, client):
+        field = MagicMock(spec=dripdrop.CustomFieldDefinition)
+        paginated = MagicMock(results=[field], next=None)
+
+        with patch.object(dripdrop.CustomFieldsApi, "list", return_value=paginated):
+            result = client.list_custom_fields()
+
+        assert result == [field]
+
+    def test_paginates_through_multiple_pages(self, client):
+        field_a = MagicMock(spec=dripdrop.CustomFieldDefinition)
+        field_b = MagicMock(spec=dripdrop.CustomFieldDefinition)
+        page1 = MagicMock(results=[field_a], next="http://next")
+        page2 = MagicMock(results=[field_b], next=None)
+
+        with patch.object(dripdrop.CustomFieldsApi, "list", side_effect=[page1, page2]):
+            result = client.list_custom_fields()
+
+        assert result == [field_a, field_b]
+
 
 class TestCreateContactAndEnroll:
     def test_success(self, client):
@@ -52,6 +72,20 @@ class TestCreateContactAndEnroll:
 
         assert result is True
         mock_create.assert_called_once()
+
+    def test_passes_custom_fields(self, client):
+        with patch.object(
+            dripdrop.FlowsApi, "create_contact_and_enroll_create"
+        ) as mock_create:
+            client.create_contact_and_enroll(
+                flow_uuid=uuid4(),
+                first_name="Jane",
+                email="jane@example.com",
+                custom_fields={"source": "web"},
+            )
+
+        data = mock_create.call_args[0][1]
+        assert data.custom_fields == {"source": "web"}
 
     def test_409_retries_enrollment(self, client):
         flow_uuid = uuid4()

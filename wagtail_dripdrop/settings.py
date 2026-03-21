@@ -17,3 +17,7 @@ def get_api_base_url():
 
 def get_flow_cache_timeout():
     return getattr(settings, "DRIPDROP_FLOW_CACHE_TIMEOUT", 3600)
+
+
+def get_custom_field_cache_timeout():
+    return getattr(settings, "DRIPDROP_CUSTOM_FIELD_CACHE_TIMEOUT", 3600)

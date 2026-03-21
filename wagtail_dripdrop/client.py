@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import dripdrop
@@ -10,7 +10,7 @@ import dripdrop
 from wagtail_dripdrop.settings import get_api_base_url, get_api_key
 
 if TYPE_CHECKING:
-    from dripdrop import PublicFlow
+    from dripdrop import CustomFieldDefinition, PublicFlow
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +27,24 @@ class DripDropClient:
 
     def list_flows(self) -> list[PublicFlow]:
         """Return every flow for the account, handling pagination."""
+        return self._paginate(dripdrop.FlowsApi)
+
+    def list_custom_fields(self) -> list[CustomFieldDefinition]:
+        """Return every custom field definition, handling pagination."""
+        return self._paginate(dripdrop.CustomFieldsApi)
+
+    def _paginate(self, api_class: type) -> list:
         with dripdrop.ApiClient(self._configuration) as api_client:
-            api = dripdrop.FlowsApi(api_client)
-            flows: list[PublicFlow] = []
+            api = api_class(api_client)
+            results = []
             page = 1
             while True:
                 response = api.list(page=page)
-                flows.extend(response.results)
+                results.extend(response.results)
                 if response.next is None:
                     break
                 page += 1
-            return flows
+            return results
 
     def create_contact_and_enroll(
         self,
@@ -47,6 +54,7 @@ class DripDropClient:
         last_name: str = "",
         email: str | None = None,
         phone: str | None = None,
+        custom_fields: dict[str, Any] | None = None,
     ) -> bool:
         """Create a contact and enroll them in a flow.
 
@@ -61,6 +69,7 @@ class DripDropClient:
                     last_name=last_name,
                     email=email,
                     phone=phone,
+                    custom_fields=custom_fields,
                 )
                 dripdrop.FlowsApi(api_client).create_contact_and_enroll_create(
                     flow_uuid, data
