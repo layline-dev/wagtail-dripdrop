@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Fix existing-contact enrollment when the DripDrop API returns a full contact object in the 409 conflict response
+- Add a Wagtail Settings → DripDrop cache page showing cached flows and custom fields
+- Move manual cache refresh out of the main admin nav and into the DripDrop cache settings page
+
 ## 0.2.0
 
 - `DripDropFormFieldMixin` for mapping form fields to DripDrop contact properties
