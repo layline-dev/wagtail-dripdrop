@@ -87,7 +87,10 @@ class DripDropClient:
     def _enroll_existing_contact(self, flow_uuid: UUID, exc: dripdrop.ApiException) -> bool:
         try:
             body = json.loads(exc.body)
-            contact_uuid = body["contact"]
+            contact = body["contact"]
+            contact_uuid = contact.get("uuid") if isinstance(contact, dict) else contact
+            if not contact_uuid:
+                raise KeyError("contact.uuid")
         except (json.JSONDecodeError, KeyError, TypeError):
             logger.error(
                 "Could not extract contact UUID from 409 response: %s", exc.body

@@ -64,7 +64,7 @@ On submission, the contact is created and enrolled in the selected flow. If the 
 
 ## Cache
 
-Flow and custom field choices are cached using Django's cache framework. The cache refreshes automatically on a miss, or you can manually refresh it from the Wagtail admin menu ("Refresh DripDrop Cache").
+Flow and custom field choices are cached using Django's cache framework. The cache refreshes automatically on a miss. You can inspect the cached flows and custom fields, or refresh both caches manually, from **Settings → DripDrop cache** in the Wagtail admin.
 
 ## Settings
 

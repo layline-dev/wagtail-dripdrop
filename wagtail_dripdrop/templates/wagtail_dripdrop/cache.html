@@ -1,0 +1,75 @@
+{% extends "wagtailadmin/generic/base.html" %}
+{% load i18n wagtailadmin_tags %}
+
+{% block titletag %}{% trans "DripDrop cache" %}{% endblock %}
+
+{% block main_header %}
+    {% include "wagtailadmin/shared/header.html" with title="DripDrop cache" subtitle="Flows and custom fields" icon="refresh" only %}
+{% endblock %}
+
+{% block main_content %}
+    <p>
+        {% trans "DripDrop flow and custom field choices are cached for Wagtail form editing. Use this page to inspect the current cache and refresh it from the DripDrop API." %}
+    </p>
+
+    <form method="post" class="w-mt-6 w-mb-8">
+        {% csrf_token %}
+        <button type="submit" class="button bicolor button--icon">
+            {% icon name="refresh" wrapped=1 %}{% trans "Refresh cache" %}
+        </button>
+    </form>
+
+    <section class="w-mb-10">
+        <h2>{% blocktrans count count=flow_count %}Cached flow{% plural %}Cached flows{% endblocktrans %} <span class="w-text-14 w-text-text-label">({{ flow_count }})</span></h2>
+        {% if not flows_cached %}
+            <p><em>{% trans "Flow cache is empty. Refresh the cache to fetch flows from DripDrop." %}</em></p>
+        {% elif flows %}
+            <table class="listing">
+                <thead>
+                    <tr>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "UUID" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for flow in flows %}
+                        <tr>
+                            <td>{{ flow.name|default:"—" }}</td>
+                            <td><code>{{ flow.uuid|default:"—" }}</code></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p><em>{% trans "Flow cache is present but contains no flows." %}</em></p>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>{% blocktrans count count=custom_field_count %}Cached custom field{% plural %}Cached custom fields{% endblocktrans %} <span class="w-text-14 w-text-text-label">({{ custom_field_count }})</span></h2>
+        {% if not custom_fields_cached %}
+            <p><em>{% trans "Custom field cache is empty. Refresh the cache to fetch custom fields from DripDrop." %}</em></p>
+        {% elif custom_fields %}
+            <table class="listing">
+                <thead>
+                    <tr>
+                        <th>{% trans "Display name" %}</th>
+                        <th>{% trans "Key" %}</th>
+                        <th>{% trans "Target model" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for field in custom_fields %}
+                        <tr>
+                            <td>{{ field.display_name|default:"—" }}</td>
+                            <td><code>{{ field.key|default:"—" }}</code></td>
+                            <td>{{ field.target_model|default:"—" }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p><em>{% trans "Custom field cache is present but contains no custom fields." %}</em></p>
+        {% endif %}
+    </section>
+{% endblock %}
