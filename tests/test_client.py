@@ -87,13 +87,19 @@ class TestCreateContactAndEnroll:
         data = mock_create.call_args[0][1]
         assert data.custom_fields == {"source": "web"}
 
-    def test_409_retries_enrollment(self, client):
+    @pytest.mark.parametrize("contact_payload", ["uuid", "object"])
+    def test_409_retries_enrollment(self, client, contact_payload):
         flow_uuid = uuid4()
         contact_uuid = str(uuid4())
+        contact = (
+            contact_uuid
+            if contact_payload == "uuid"
+            else {"uuid": contact_uuid, "email": "existing@example.com"}
+        )
 
         conflict_exc = dripdrop.ApiException(
             status=409,
-            body=json.dumps({"contact": contact_uuid}),
+            body=json.dumps({"contact": contact}),
         )
 
         with (
@@ -112,6 +118,26 @@ class TestCreateContactAndEnroll:
 
         assert result is True
         mock_enroll.assert_called_once()
+        enrollment = mock_enroll.call_args[0][0]
+        assert str(enrollment.contact_uuid) == contact_uuid
+
+    def test_409_missing_contact_uuid_returns_false(self, client):
+        conflict_exc = dripdrop.ApiException(
+            status=409, body=json.dumps({"contact": {"email": "existing@example.com"}})
+        )
+
+        with patch.object(
+            dripdrop.FlowsApi,
+            "create_contact_and_enroll_create",
+            side_effect=conflict_exc,
+        ):
+            result = client.create_contact_and_enroll(
+                flow_uuid=uuid4(),
+                first_name="Jane",
+                email="jane@example.com",
+            )
+
+        assert result is False
 
     def test_409_bad_body_returns_false(self, client):
         conflict_exc = dripdrop.ApiException(status=409, body="not json")
