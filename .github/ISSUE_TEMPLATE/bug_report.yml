@@ -1,0 +1,40 @@
+name: Bug report
+description: Something is not working as documented
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Map a form field to '...'
+        2. Submit the form
+        3. See ...
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: wagtail-dripdrop, Wagtail, Django, and Python versions
+      placeholder: "wagtail-dripdrop 0.3.0, Wagtail 7.0, Django 5.1, Python 3.12"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: >
+        Enrollment errors are logged rather than raised, so the `wagtail_dripdrop`
+        logger often has the detail. Redact your API key before pasting.
+      render: shell

@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING
 from django.core.cache import cache
 
 from wagtail_dripdrop.client import get_client
-from wagtail_dripdrop.settings import get_custom_field_cache_timeout, get_flow_cache_timeout
+from wagtail_dripdrop.settings import (
+    get_custom_field_cache_timeout,
+    get_flow_cache_timeout,
+)
 
 if TYPE_CHECKING:
     from dripdrop import CustomFieldDefinition, PublicFlow

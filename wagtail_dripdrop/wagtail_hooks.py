@@ -27,14 +27,16 @@ class DripDropCacheView(TemplateView):
         context = super().get_context_data(**kwargs)
         flows = cache.get(FLOWS_CACHE_KEY)
         custom_fields = cache.get(CUSTOM_FIELDS_CACHE_KEY)
-        context.update({
-            "flows": flows,
-            "custom_fields": custom_fields,
-            "flows_cached": flows is not None,
-            "custom_fields_cached": custom_fields is not None,
-            "flow_count": len(flows or []),
-            "custom_field_count": len(custom_fields or []),
-        })
+        context.update(
+            {
+                "flows": flows,
+                "custom_fields": custom_fields,
+                "flows_cached": flows is not None,
+                "custom_fields_cached": custom_fields is not None,
+                "flow_count": len(flows or []),
+                "custom_field_count": len(custom_fields or []),
+            }
+        )
         return context
 
     def post(self, request, *args, **kwargs):
@@ -67,11 +69,16 @@ def register_admin_urls():
     ]
 
 
+@hooks.register("register_icons")
+def register_icons(icons):
+    return [*icons, "wagtail_dripdrop/icons/dripdrop.svg"]
+
+
 @hooks.register("register_settings_menu_item")
 def register_cache_menu_item():
     return MenuItem(
         "DripDrop cache",
         reverse_lazy("dripdrop_cache"),
-        icon_name="refresh",
+        icon_name="dripdrop",
         order=900,
     )

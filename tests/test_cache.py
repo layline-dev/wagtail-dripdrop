@@ -36,8 +36,16 @@ def sample_flows():
 @pytest.fixture()
 def sample_custom_fields():
     return [
-        {"key": "source", "display_name": "Lead Source", "target_model": "contacts.contact"},
-        {"key": "company", "display_name": "Company", "target_model": "contacts.contact"},
+        {
+            "key": "source",
+            "display_name": "Lead Source",
+            "target_model": "contacts.contact",
+        },
+        {
+            "key": "company",
+            "display_name": "Company",
+            "target_model": "contacts.contact",
+        },
     ]
 
 

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import datetime
 import logging
 from collections import Counter
+from decimal import Decimal
+from typing import Any, NamedTuple
 
 import dripdrop
 from django.core.exceptions import ValidationError
@@ -12,19 +15,76 @@ from wagtail_dripdrop.client import get_client
 logger = logging.getLogger(__name__)
 
 CONTACT_TARGET_MODEL = "contacts.contact"
+ENROLLMENT_TARGET_MODEL = "flows.flowenrollment"
+
 CUSTOM_MAPPING = "custom"
-_CUSTOM_FIELDS_KEY = "custom_fields"
+ENROLLMENT_CUSTOM_MAPPING = "enrollment_custom"
+CUSTOM_MAPPINGS = frozenset({CUSTOM_MAPPING, ENROLLMENT_CUSTOM_MAPPING})
+
+
+class CustomFieldTarget(NamedTuple):
+    """Where a custom-field mapping's definitions come from."""
+
+    target_model: str
+    #: Optgroup label used by ``panels.CustomFieldKeySelect``.
+    group_label: str
+
+
+#: Single source of truth for the two custom-field namespaces. Iteration order
+#: is the order the groups appear in the admin key chooser.
+CUSTOM_MAPPING_TARGETS = {
+    CUSTOM_MAPPING: CustomFieldTarget(CONTACT_TARGET_MODEL, "Contact custom fields"),
+    ENROLLMENT_CUSTOM_MAPPING: CustomFieldTarget(
+        ENROLLMENT_TARGET_MODEL, "Enrollment custom fields"
+    ),
+}
+
+#: Scalar ``CreateContactAndEnroll`` fields a form field may be mapped to, in
+#: display order. This is deliberately an allowlist rather than a filter over
+#: ``model_fields``: anything not named here is never forwarded by
+#: :meth:`DripDropFormMixin._enroll_contact`, so letting a new SDK field appear
+#: in the dropdown would silently discard whatever an editor mapped to it.
+MAPPABLE_CONTACT_FIELDS = ("first_name", "last_name", "email", "phone")
 
 
 def _build_mapping_choices():
-    """Derive contact field choices from the dripdrop SDK model."""
+    """Build the DripDrop mapping choices, labelled from the SDK model."""
+    sdk_fields = dripdrop.CreateContactAndEnroll.model_fields
+    missing = [name for name in MAPPABLE_CONTACT_FIELDS if name not in sdk_fields]
+    if missing:
+        logger.warning(
+            "The installed dripdrop SDK has no %s field(s) on "
+            "CreateContactAndEnroll; the matching form field mappings will "
+            "not be offered.",
+            ", ".join(missing),
+        )
+
     choices = [("", "---------")]
-    for name in dripdrop.CreateContactAndEnroll.model_fields:
-        if name == _CUSTOM_FIELDS_KEY:
-            continue
-        choices.append((name, name.replace("_", " ").title()))
+    for name in MAPPABLE_CONTACT_FIELDS:
+        if name in sdk_fields:
+            choices.append((name, name.replace("_", " ").title()))
     choices.append((CUSTOM_MAPPING, "Custom Field"))
+    choices.append((ENROLLMENT_CUSTOM_MAPPING, "Enrollment Custom Field"))
     return choices
+
+
+def _coerce_custom_value(value: Any) -> Any:
+    """Coerce a cleaned form value into something JSON-serialisable.
+
+    Wagtail's form builder yields ``datetime`` objects for date fields and
+    lists for checkbox/multi-select fields. Passing those through unchanged
+    makes the API request fail to serialise, which would lose the submission.
+    """
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return value.isoformat()
+    if isinstance(value, (list, tuple, set, frozenset)):
+        items = sorted(value, key=str) if isinstance(value, (set, frozenset)) else value
+        return ", ".join(str(_coerce_custom_value(item)) for item in items)
+    return str(value)
 
 
 DRIPDROP_MAPPING_CHOICES = _build_mapping_choices()
@@ -92,10 +152,12 @@ class DripDropFormMixin(models.Model):
 
         if not hasattr(self.form_fields.model, "dripdrop_mapping"):
             raise ValidationError(
-                {"flow_uuid": (
-                    "Your form field model must use DripDropFormFieldMixin "
-                    "to enable field mapping."
-                )}
+                {
+                    "flow_uuid": (
+                        "Your form field model must use DripDropFormFieldMixin "
+                        "to enable field mapping."
+                    )
+                }
             )
 
         field_data = list(
@@ -118,7 +180,7 @@ class DripDropFormMixin(models.Model):
                 "must be mapped to 'Email' or 'Phone'."
             )
 
-        contact_mappings = [m for m in mappings if m != CUSTOM_MAPPING]
+        contact_mappings = [m for m in mappings if m not in CUSTOM_MAPPINGS]
         for mapping, count in Counter(contact_mappings).items():
             if count > 1:
                 label = _MAPPING_LABELS.get(mapping, mapping)
@@ -127,17 +189,27 @@ class DripDropFormMixin(models.Model):
                     "Each contact field can only be mapped once."
                 )
 
-        custom_entries = [(m, k) for m, k in field_data if m == CUSTOM_MAPPING]
-        for _, key in custom_entries:
+        custom_entries = [(m, k) for m, k in field_data if m in CUSTOM_MAPPINGS]
+        for mapping, key in custom_entries:
             if not key:
+                label = _MAPPING_LABELS.get(mapping, mapping)
                 errors.append(
-                    "A form field is mapped to 'Custom Field' but no "
+                    f"A form field is mapped to '{label}' but no "
                     "custom field key is selected."
                 )
 
-        custom_keys = {k for _, k in custom_entries if k}
-        if custom_keys:
-            errors.extend(_validate_custom_field_keys(custom_keys))
+        for (mapping, key), count in Counter(custom_entries).items():
+            if key and count > 1:
+                label = _MAPPING_LABELS.get(mapping, mapping)
+                errors.append(
+                    f"Multiple form fields are mapped to the '{label}' "
+                    f"key '{key}'. Each custom field can only be mapped once."
+                )
+
+        for mapping in CUSTOM_MAPPING_TARGETS:
+            keys = {k for m, k in custom_entries if m == mapping and k}
+            if keys:
+                errors.extend(_validate_custom_field_keys(mapping, keys))
 
         if errors:
             raise ValidationError({"flow_uuid": errors})
@@ -152,19 +224,20 @@ class DripDropFormMixin(models.Model):
 
     def _enroll_contact(self, data: dict) -> None:
         try:
-            field_mappings = self.form_fields.exclude(
-                dripdrop_mapping=""
-            ).values_list(
+            field_mappings = self.form_fields.exclude(dripdrop_mapping="").values_list(
                 "clean_name", "dripdrop_mapping", "dripdrop_custom_field_key"
             )
 
             contact = {}
             custom_fields = {}
+            enrollment_custom_fields = {}
             for clean_name, mapping, custom_key in field_mappings:
                 value = data.get(clean_name)
                 if mapping == CUSTOM_MAPPING and custom_key:
-                    custom_fields[custom_key] = value
-                else:
+                    custom_fields[custom_key] = _coerce_custom_value(value)
+                elif mapping == ENROLLMENT_CUSTOM_MAPPING and custom_key:
+                    enrollment_custom_fields[custom_key] = _coerce_custom_value(value)
+                elif mapping in MAPPABLE_CONTACT_FIELDS:
                     contact[mapping] = value
 
             client = get_client()
@@ -175,6 +248,7 @@ class DripDropFormMixin(models.Model):
                 email=contact.get("email"),
                 phone=contact.get("phone"),
                 custom_fields=custom_fields or None,
+                enrollment_custom_fields=enrollment_custom_fields or None,
             )
         except Exception:
             logger.exception(
@@ -182,24 +256,24 @@ class DripDropFormMixin(models.Model):
             )
 
 
-def _validate_custom_field_keys(keys: set[str]) -> list[str]:
+def _validate_custom_field_keys(mapping: str, keys: set[str]) -> list[str]:
     from wagtail_dripdrop.cache import get_cached_custom_fields
+
+    target_model = CUSTOM_MAPPING_TARGETS[mapping].target_model
+    label = _MAPPING_LABELS.get(mapping, mapping)
 
     errors = []
     try:
         known_keys = {
             cf.key
             for cf in get_cached_custom_fields()
-            if cf.target_model == CONTACT_TARGET_MODEL
+            if cf.target_model == target_model
         }
         for key in sorted(keys - known_keys):
             errors.append(
-                f"Custom field '{key}' does not exist in DripDrop. "
-                "Create it in your DripDrop account before mapping "
-                "form fields to it."
+                f"There is no '{label}' called '{key}' in DripDrop. Create it "
+                "in your DripDrop account before mapping form fields to it."
             )
     except Exception:
-        logger.warning(
-            "Could not validate custom field keys against the DripDrop API."
-        )
+        logger.warning("Could not validate custom field keys against the DripDrop API.")
     return errors
