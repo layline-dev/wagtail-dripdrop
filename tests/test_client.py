@@ -4,9 +4,9 @@ import json
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import dripdrop
 import pytest
 
-import dripdrop
 from wagtail_dripdrop.client import DripDropClient
 
 
@@ -87,6 +87,70 @@ class TestCreateContactAndEnroll:
         data = mock_create.call_args[0][1]
         assert data.custom_fields == {"source": "web"}
 
+    def test_passes_enrollment_custom_fields(self, client):
+        with patch.object(
+            dripdrop.FlowsApi, "create_contact_and_enroll_create"
+        ) as mock_create:
+            client.create_contact_and_enroll(
+                flow_uuid=uuid4(),
+                first_name="Jane",
+                email="jane@example.com",
+                custom_fields={"source": "web"},
+                enrollment_custom_fields={"requested_session": "Morning"},
+            )
+
+        data = mock_create.call_args[0][1]
+        assert data.custom_fields == {"source": "web"}
+        assert data.enrollment_custom_fields == {"requested_session": "Morning"}
+
+    def test_omits_on_match_by_default(self, client):
+        """An explicit ``on_match=None`` is serialised into the request body as
+        a null, so the default path must not set the field at all."""
+        with patch.object(
+            dripdrop.FlowsApi, "create_contact_and_enroll_create"
+        ) as mock_create:
+            client.create_contact_and_enroll(
+                flow_uuid=uuid4(),
+                first_name="Jane",
+                email="jane@example.com",
+            )
+
+        data = mock_create.call_args[0][1]
+        assert data.on_match is None
+        assert "on_match" not in data.to_dict()
+
+    def test_create_new_sends_on_match(self, client, settings):
+        settings.DRIPDROP_ON_DUPLICATE_CONTACT = "create_new"
+
+        with patch.object(
+            dripdrop.FlowsApi, "create_contact_and_enroll_create"
+        ) as mock_create:
+            client.create_contact_and_enroll(
+                flow_uuid=uuid4(),
+                first_name="Jane",
+                email="jane@example.com",
+            )
+
+        assert mock_create.call_args[0][1].on_match == dripdrop.OnMatchEnum.CREATE
+
+    def test_invalid_on_duplicate_setting_is_contained(self, client, settings):
+        """``create_contact_and_enroll`` promises never to raise, so a bad
+        setting must not escape into form processing. The system check in
+        ``wagtail_dripdrop.checks`` is what surfaces it, at deploy time."""
+        settings.DRIPDROP_ON_DUPLICATE_CONTACT = "nonsense"
+
+        with patch.object(
+            dripdrop.FlowsApi, "create_contact_and_enroll_create"
+        ) as mock_create:
+            result = client.create_contact_and_enroll(
+                flow_uuid=uuid4(),
+                first_name="Jane",
+                email="jane@example.com",
+            )
+
+        assert result is False
+        mock_create.assert_not_called()
+
     @pytest.mark.parametrize("contact_payload", ["uuid", "object"])
     def test_409_retries_enrollment(self, client, contact_payload):
         flow_uuid = uuid4()
@@ -138,6 +202,30 @@ class TestCreateContactAndEnroll:
             )
 
         assert result is False
+
+    def test_409_retry_carries_enrollment_custom_fields(self, client):
+        conflict_exc = dripdrop.ApiException(
+            status=409,
+            body=json.dumps({"contact": str(uuid4())}),
+        )
+
+        with (
+            patch.object(
+                dripdrop.FlowsApi,
+                "create_contact_and_enroll_create",
+                side_effect=conflict_exc,
+            ),
+            patch.object(dripdrop.EnrollmentsApi, "create") as mock_enroll,
+        ):
+            client.create_contact_and_enroll(
+                flow_uuid=uuid4(),
+                first_name="Jane",
+                email="jane@example.com",
+                enrollment_custom_fields={"requested_session": "Morning"},
+            )
+
+        enrollment = mock_enroll.call_args[0][0]
+        assert enrollment.custom_fields == {"requested_session": "Morning"}
 
     def test_409_bad_body_returns_false(self, client):
         conflict_exc = dripdrop.ApiException(status=409, body="not json")

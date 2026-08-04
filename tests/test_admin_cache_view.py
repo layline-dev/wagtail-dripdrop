@@ -79,8 +79,10 @@ class TestDripDropCacheView:
         fields = [{"key": "source", "display_name": "Lead Source"}]
 
         with (
-            patch("wagtail_dripdrop.wagtail_hooks.refresh_flow_cache", return_value=flows)
-            as mock_refresh_flows,
+            patch(
+                "wagtail_dripdrop.wagtail_hooks.refresh_flow_cache",
+                return_value=flows,
+            ) as mock_refresh_flows,
             patch(
                 "wagtail_dripdrop.wagtail_hooks.refresh_custom_field_cache",
                 return_value=fields,

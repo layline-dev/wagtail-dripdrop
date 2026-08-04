@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wagtail-dripdrop"
-version = "0.2.1"
+version = "0.3.0"
 description = "Connect Wagtail form pages to DripDrop flows."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,21 +19,28 @@ classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
     "Framework :: Django :: 4.2",
-    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Framework :: Wagtail",
     "Framework :: Wagtail :: 5",
     "Framework :: Wagtail :: 6",
+    "Framework :: Wagtail :: 7",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 dependencies = [
-    "wagtail>=5.0",
-    "dripdrop",
+    "wagtail>=5.2",
+    # Upper bound is deliberate: dripdrop is pre-1.0 and makes no compatibility
+    # promise across minor versions. 0.1.1 adding fields to
+    # CreateContactAndEnroll already changed this package's admin UI once.
+    "dripdrop>=0.1.1,<0.2",
 ]
 
 [project.optional-dependencies]
@@ -49,8 +56,30 @@ Repository = "https://github.com/layline-dev/wagtail-dripdrop"
 Changelog = "https://github.com/layline-dev/wagtail-dripdrop/blob/main/CHANGELOG.md"
 Issues = "https://github.com/layline-dev/wagtail-dripdrop/issues"
 
+[tool.hatch.build.targets.wheel]
+packages = ["wagtail_dripdrop"]
+
 [tool.ruff]
 target-version = "py310"
+line-length = 88
+extend-exclude = ["venv", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "DJ",   # flake8-django
+    "RUF",  # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests reach into private helpers deliberately.
+"tests/*" = ["SLF001"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
