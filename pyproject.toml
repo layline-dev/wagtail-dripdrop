@@ -45,7 +45,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff",
+    # Pinned exactly: ruff's formatter output and lint rules change between
+    # releases, so an unpinned version breaks CI with no code change. Dependabot
+    # proposes upgrades, which land as a deliberate reformatting commit.
+    "ruff==0.16.1",
     "pytest",
     "pytest-django",
 ]

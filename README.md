@@ -49,7 +49,9 @@ from wagtail_dripdrop import (
 
 
 class FormField(DripDropFormFieldMixin, AbstractFormField):
-    page = ParentalKey("ContactPage", related_name="form_fields", on_delete=models.CASCADE)
+    page = ParentalKey(
+        "ContactPage", related_name="form_fields", on_delete=models.CASCADE
+    )
     panels = AbstractFormField.panels + DripDropFieldMappingPanels()
 
 
