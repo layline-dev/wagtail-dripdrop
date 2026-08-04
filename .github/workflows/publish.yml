@@ -20,7 +20,7 @@ jobs:
           python-version: "3.12"
       - run: pip install build
       - run: python -m build
-      - uses: pypa/gh-action-pypi-publish@v1.12.4
+      - uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           verbose: true
           attestations: true
